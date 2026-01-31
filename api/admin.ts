@@ -1,38 +1,37 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './db.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const prisma = getDb();
-
-  // Get the resource type from query param
   const resource = req.query.resource as string;
 
   if (!resource) {
-    return res.status(400).json({ success: false, error: 'resource query param required (regions, sites, floors, zones, clients, projects, queues, zone-capacity, project-assignments, copy-month-data)' });
+    return res.status(400).json({ success: false, error: 'resource query param required' });
   }
 
   try {
     switch (resource) {
       case 'regions':
-        return handleRegions(req, res, prisma);
+        return handleRegions(req, res);
       case 'sites':
-        return handleSites(req, res, prisma);
+        return handleSites(req, res);
       case 'floors':
-        return handleFloors(req, res, prisma);
+        return handleFloors(req, res);
       case 'zones':
-        return handleZones(req, res, prisma);
+        return handleZones(req, res);
       case 'clients':
-        return handleClients(req, res, prisma);
+        return handleClients(req, res);
       case 'projects':
-        return handleProjects(req, res, prisma);
+        return handleProjects(req, res);
       case 'queues':
-        return handleQueues(req, res, prisma);
+        return handleQueues(req, res);
       case 'zone-capacity':
-        return handleZoneCapacity(req, res, prisma);
+        return handleZoneCapacity(req, res);
       case 'project-assignments':
-        return handleProjectAssignments(req, res, prisma);
+        return handleProjectAssignments(req, res);
       case 'copy-month-data':
-        return handleCopyMonthData(req, res, prisma);
+        return handleCopyMonthData(req, res);
       default:
         return res.status(400).json({ success: false, error: `Unknown resource: ${resource}` });
     }
@@ -42,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function handleRegions(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleRegions(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const regions = await prisma.region.findMany({ orderBy: { name: 'asc' } });
     return res.status(200).json({ success: true, data: regions });
@@ -67,7 +66,7 @@ async function handleRegions(req: VercelRequest, res: VercelResponse, prisma: an
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleSites(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleSites(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const sites = await prisma.site.findMany({ include: { region: true }, orderBy: { name: 'asc' } });
     return res.status(200).json({ success: true, data: sites });
@@ -104,7 +103,7 @@ async function handleSites(req: VercelRequest, res: VercelResponse, prisma: any)
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleFloors(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleFloors(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const floors = await prisma.floor.findMany({ include: { site: true }, orderBy: [{ siteId: 'asc' }, { name: 'asc' }] });
     return res.status(200).json({ success: true, data: floors });
@@ -129,7 +128,7 @@ async function handleFloors(req: VercelRequest, res: VercelResponse, prisma: any
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleZones(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleZones(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const zones = await prisma.zone.findMany({ include: { floor: { include: { site: true } } }, orderBy: [{ floorId: 'asc' }, { name: 'asc' }] });
     return res.status(200).json({ success: true, data: zones });
@@ -152,7 +151,7 @@ async function handleZones(req: VercelRequest, res: VercelResponse, prisma: any)
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleClients(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleClients(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const clients = await prisma.client.findMany({ include: { projects: true }, orderBy: { code: 'asc' } });
     return res.status(200).json({ success: true, data: clients });
@@ -175,7 +174,7 @@ async function handleClients(req: VercelRequest, res: VercelResponse, prisma: an
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleProjects(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleProjects(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const projects = await prisma.project.findMany({ include: { client: true }, orderBy: { code: 'asc' } });
     return res.status(200).json({ success: true, data: projects });
@@ -198,7 +197,7 @@ async function handleProjects(req: VercelRequest, res: VercelResponse, prisma: a
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleQueues(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleQueues(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const queues = await prisma.queue.findMany({ orderBy: { name: 'asc' } });
     return res.status(200).json({ success: true, data: queues });
@@ -221,7 +220,7 @@ async function handleQueues(req: VercelRequest, res: VercelResponse, prisma: any
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleZoneCapacity(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleZoneCapacity(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const yearMonth = req.query.yearMonth as string;
     const where = yearMonth ? { yearMonth } : {};
@@ -249,7 +248,7 @@ async function handleZoneCapacity(req: VercelRequest, res: VercelResponse, prism
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleProjectAssignments(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleProjectAssignments(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const yearMonth = req.query.yearMonth as string;
     const where = yearMonth ? { yearMonth } : {};
@@ -281,7 +280,7 @@ async function handleProjectAssignments(req: VercelRequest, res: VercelResponse,
   return res.status(405).json({ success: false, error: 'Method not allowed' });
 }
 
-async function handleCopyMonthData(req: VercelRequest, res: VercelResponse, prisma: any) {
+async function handleCopyMonthData(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }

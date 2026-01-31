@@ -1,11 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './db.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const prisma = getDb();
-
   try {
-    // GET - Get capacity for a zone
     if (req.method === 'GET') {
       const { zoneId, yearMonth } = req.query;
 
@@ -32,7 +31,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, data: capacities });
     }
 
-    // PUT - Update capacity (upsert)
     if (req.method === 'PUT') {
       const { zoneId, yearMonth, capacity } = req.body;
 

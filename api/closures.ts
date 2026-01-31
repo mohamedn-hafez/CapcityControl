@@ -1,13 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './db.js';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const prisma = getDb();
-
   try {
     // GET - List all closure plans
     if (req.method === 'GET') {
-      // Closures are now at floor level
       const closures = await prisma.closurePlan.findMany({
         include: {
           floor: {
@@ -67,7 +66,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ success: false, error: 'floorId and closureDate required' });
       }
 
-      // Get floor with zones to calculate seats affected if not provided
       const floor = await prisma.floor.findUnique({
         where: { id: floorId },
         include: {
@@ -86,11 +84,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(404).json({ success: false, error: 'Floor not found' });
       }
 
-      // Calculate yearMonth from closureDate
       const date = new Date(closureDate);
       const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-      // Calculate seats affected from all zones in the floor
       let calculatedSeats = 0;
       for (const zone of floor.zones) {
         const latestAssignments = zone.projectAssignments.filter(pa => pa.yearMonth === yearMonth);
