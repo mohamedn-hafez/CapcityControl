@@ -1,5 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { prisma } from './_prisma.js';
+import { PrismaClient } from '@prisma/client';
+import { neonConfig, Pool } from '@neondatabase/serverless';
+import { PrismaNeon } from '@prisma/adapter-neon';
+
+neonConfig.useSecureWebSocket = true;
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaNeon(pool);
+const prisma = new PrismaClient({ adapter });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = req.query.resource as string;
