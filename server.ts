@@ -30,6 +30,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from dist folder in production
+const distPath = resolve(__dirname, 'dist');
+app.use(express.static(distPath));
+
 // Helper: Calculate occupied seats for a zone in a given month from ProjectAssignment
 async function getZoneOccupiedSeats(zoneId: string, yearMonth: string): Promise<number> {
   const result = await prisma.projectAssignment.aggregate({
@@ -1401,6 +1405,12 @@ app.post('/api/admin/copy-month-data', async (req, res) => {
   }
 });
 
+// Catch-all route: serve index.html for client-side routing (production)
+// Express 5 requires named wildcards
+app.get('/{*path}', (req, res) => {
+  res.sendFile(resolve(distPath, 'index.html'));
+});
+
 const PORT = 3001;
 app.listen(PORT, () => {
   console.log(`API server running at http://localhost:${PORT}`);
@@ -1413,4 +1423,6 @@ app.listen(PORT, () => {
   console.log('  GET /api/admin/zone-capacity');
   console.log('  GET /api/admin/project-assignments');
   console.log('  POST /api/admin/copy-month-data');
+  console.log('');
+  console.log('Production: Open http://localhost:3001 to view the app');
 });
