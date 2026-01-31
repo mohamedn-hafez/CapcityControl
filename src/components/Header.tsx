@@ -15,7 +15,7 @@ export function Header({ onImport, onExport, onAISummary, onAdmin }: HeaderProps
         <div className="flex items-center gap-3">
           <LayoutDashboard className="w-8 h-8 text-blue-600" />
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Capacity Planner</h1>
+            <h1 className="text-xl font-bold text-gray-800">CapacityPulse</h1>
             <p className="text-sm text-gray-500">Call Center Site Consolidation</p>
           </div>
         </div>

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Call Center Capacity Planner - A React web application for simulating staff migration scenarios when closing or consolidating facilities. Built with React 19, TypeScript, Vite, and Tailwind CSS (via CDN).
+CapacityPulse - A React web application for simulating staff migration scenarios when closing or consolidating facilities. Built with React 19, TypeScript, Vite, and Tailwind CSS (via CDN).
 
 ## Commands
 
