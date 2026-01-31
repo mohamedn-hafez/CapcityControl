@@ -1,10 +1,6 @@
 import { PrismaClient } from '../generated/prisma';
 import { PrismaNeon } from '@prisma/adapter-neon';
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import ws from 'ws';
-
-// Configure WebSocket for Node.js serverless environment
-neonConfig.webSocketConstructor = ws;
+import { neon } from '@neondatabase/serverless';
 
 // Create a singleton Prisma client for serverless
 let prisma: PrismaClient | null = null;
@@ -16,8 +12,9 @@ export function getDb(): PrismaClient {
       throw new Error('DATABASE_URL environment variable is not set');
     }
 
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaNeon(pool as any);
+    // Use neon() for HTTP-based queries (no WebSocket needed)
+    const sql = neon(connectionString);
+    const adapter = new PrismaNeon(sql as any);
     prisma = new PrismaClient({ adapter });
   }
   return prisma;
