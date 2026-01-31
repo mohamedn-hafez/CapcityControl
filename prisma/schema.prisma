@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Region {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  country   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sites     Site[]
+}
+
+model Site {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  name        String
+  regionId    String
+  status      SiteStatus @default(ACTIVE)
+  openingDate DateTime?
+  closingDate DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  floors      Floor[]
+  region      Region     @relation(fields: [regionId], references: [id])
+
+  @@index([regionId])
+  @@index([status])
+}
+
+model Floor {
+  id           String        @id @default(cuid())
+  code         String
+  name         String
+  siteId       String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  closurePlans ClosurePlan[]
+  site         Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  zones        Zone[]
+
+  @@unique([siteId, code])
+  @@index([siteId])
+}
+
+model Zone {
+  id                 String              @id @default(cuid())
+  code               String
+  name               String
+  siteFloorZoneCode  String              @unique
+  floorId            String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  allocationsFrom    Allocation[]        @relation("AllocationSource")
+  allocationsTo      Allocation[]        @relation("AllocationTarget")
+  projectAssignments ProjectAssignment[]
+  floor              Floor               @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  zoneCapacities     ZoneCapacity[]
+
+  @@index([floorId])
+}
+
+model Queue {
+  id                 String              @id @default(cuid())
+  code               String              @unique
+  name               String
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  projectAssignments ProjectAssignment[]
+}
+
+model Client {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+}
+
+model Project {
+  id                 String              @id @default(cuid())
+  code               String              @unique
+  name               String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  clientId           String
+  client             Client              @relation(fields: [clientId], references: [id])
+  projectAssignments ProjectAssignment[]
+
+  @@index([clientId])
+}
+
+model ZoneCapacity {
+  id        String   @id @default(cuid())
+  zoneId    String
+  yearMonth String
+  capacity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  zone      Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, yearMonth])
+  @@index([yearMonth])
+  @@index([zoneId])
+}
+
+model ProjectAssignment {
+  id        String   @id @default(cuid())
+  zoneId    String
+  projectId String
+  queueId   String
+  yearMonth String
+  seats     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id])
+  queue     Queue    @relation(fields: [queueId], references: [id])
+  zone      Zone     @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@unique([zoneId, projectId, yearMonth])
+  @@index([zoneId])
+  @@index([projectId])
+  @@index([queueId])
+  @@index([yearMonth])
+}
+
+model ClosurePlan {
+  id            String        @id @default(cuid())
+  closureDate   DateTime
+  yearMonth     String
+  seatsAffected Int
+  status        ClosureStatus @default(PLANNED)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  floorId       String
+  allocations   Allocation[]
+  floor         Floor         @relation(fields: [floorId], references: [id])
+
+  @@index([yearMonth])
+  @@index([floorId])
+  @@index([status])
+}
+
+model Allocation {
+  id             String      @id @default(cuid())
+  closurePlanId  String
+  sourceZoneId   String
+  targetZoneId   String
+  allocatedSeats Int
+  allocationDate DateTime
+  isManual       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  closurePlan    ClosurePlan @relation(fields: [closurePlanId], references: [id], onDelete: Cascade)
+  sourceZone     Zone        @relation("AllocationSource", fields: [sourceZoneId], references: [id])
+  targetZone     Zone        @relation("AllocationTarget", fields: [targetZoneId], references: [id])
+
+  @@index([closurePlanId])
+  @@index([sourceZoneId])
+  @@index([targetZoneId])
+}
+
+model DatePeriod {
+  id        String @id @default(cuid())
+  yearMonth String @unique
+  year      Int
+  month     Int
+  monthName String
+  quarter   String
+}
+
+enum SiteStatus {
+  ACTIVE
+  CLOSING
+  PLANNED
+  CLOSED
+}
+
+enum ClosureStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}

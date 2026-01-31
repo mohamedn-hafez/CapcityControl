@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run dev:*)",
+      "Bash(ping:*)",
+      "Bash(python -c:*)",
+      "Bash(npx prisma:*)",
+      "Bash(npm run db:seed:*)",
+      "Bash(node:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout /t 5 /nobreak)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel link:*)",
+      "Bash(npm run server:*)",
+      "Bash(curl:*)",
+      "Bash(timeout:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm ls:*)",
+      "Bash(tasklist:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run start:*)",
+      "Bash(npm start)",
+      "Bash(wmic process where \"name=''node.exe''\" get commandline)",
+      "Bash(git add:*)"
+    ]
+  }
+}
