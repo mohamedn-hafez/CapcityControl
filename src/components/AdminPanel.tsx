@@ -128,45 +128,45 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
   const loadRelatedData = async () => {
     try {
       // Load regions for sites/other tabs
-      const regionsRes = await fetch(`${API_BASE}/regions`);
+      const regionsRes = await fetch(`${API_BASE}?resource=regions`);
       const regionsData = await regionsRes.json();
       if (regionsData.success) setRegions(regionsData.data);
 
       // Load sites for floors/zones tabs
       if (['floors', 'zones'].includes(activeTab)) {
-        const sitesRes = await fetch(`${API_BASE}/sites`);
+        const sitesRes = await fetch(`${API_BASE}?resource=sites`);
         const sitesData = await sitesRes.json();
         if (sitesData.success) setSites(sitesData.data);
       }
 
       // Load floors for zones tab
       if (activeTab === 'zones') {
-        const floorsRes = await fetch(`${API_BASE}/floors`);
+        const floorsRes = await fetch(`${API_BASE}?resource=floors`);
         const floorsData = await floorsRes.json();
         if (floorsData.success) setFloors(floorsData.data);
       }
 
       // Load clients for projects tab
       if (activeTab === 'projects') {
-        const clientsRes = await fetch(`${API_BASE}/clients`);
+        const clientsRes = await fetch(`${API_BASE}?resource=clients`);
         const clientsData = await clientsRes.json();
         if (clientsData.success) setClients(clientsData.data);
       }
 
       // Load zones for zone-capacity and project-assignments tabs
       if (['zone-capacity', 'project-assignments'].includes(activeTab)) {
-        const zonesRes = await fetch(`${API_BASE}/zones`);
+        const zonesRes = await fetch(`${API_BASE}?resource=zones`);
         const zonesData = await zonesRes.json();
         if (zonesData.success) setZones(zonesData.data);
       }
 
       // Load projects and queues for project-assignments tab
       if (activeTab === 'project-assignments') {
-        const projectsRes = await fetch(`${API_BASE}/projects`);
+        const projectsRes = await fetch(`${API_BASE}?resource=projects`);
         const projectsData = await projectsRes.json();
         if (projectsData.success) setProjects(projectsData.data);
 
-        const queuesRes = await fetch(`${API_BASE}/queues`);
+        const queuesRes = await fetch(`${API_BASE}?resource=queues`);
         const queuesData = await queuesRes.json();
         if (queuesData.success) setQueues(queuesData.data);
       }
@@ -180,10 +180,10 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
     setError(null);
     try {
       // Fact tables use yearMonth filter
-      const query = ['zone-capacity', 'project-assignments'].includes(tab) && yearMonth
-        ? `?yearMonth=${yearMonth}`
+      const yearMonthParam = ['zone-capacity', 'project-assignments'].includes(tab) && yearMonth
+        ? `&yearMonth=${yearMonth}`
         : '';
-      const response = await fetch(`${API_BASE}/${tab}${query}`);
+      const response = await fetch(`${API_BASE}?resource=${tab}${yearMonthParam}`);
       const data = await response.json();
       if (data.success) {
         switch (tab) {
@@ -211,7 +211,7 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
     if (!confirm('Are you sure you want to delete this item?')) return;
 
     try {
-      const response = await fetch(`${API_BASE}/${tab}/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${API_BASE}?resource=${tab}&id=${id}`, { method: 'DELETE' });
       const data = await response.json();
       if (data.success) {
         loadData(tab);
@@ -227,7 +227,7 @@ export function AdminPanel({ onBack }: AdminPanelProps) {
     try {
       const isNew = !item.id || item.id.startsWith('new_');
       const method = isNew ? 'POST' : 'PUT';
-      const url = isNew ? `${API_BASE}/${tab}` : `${API_BASE}/${tab}/${item.id}`;
+      const url = `${API_BASE}?resource=${tab}`;
 
       const response = await fetch(url, {
         method,
