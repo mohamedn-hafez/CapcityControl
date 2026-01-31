@@ -7,7 +7,7 @@
     "dev": "vite",
     "server": "tsx server.ts",
     "start": "concurrently \"npm run server\" \"npm run dev\"",
-    "build": "vite build",
+    "build": "prisma generate && vite build",
     "preview": "vite preview",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
