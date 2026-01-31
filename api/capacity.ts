@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (zoneId) where.zoneId = zoneId;
       if (yearMonth) where.yearMonth = yearMonth;
 
-      const capacities = await prisma.monthlyCapacity.findMany({
+      const capacities = await prisma.zoneCapacity.findMany({
         where,
         include: {
           zone: {
@@ -32,49 +32,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ success: true, data: capacities });
     }
 
-    // PUT - Update capacity
+    // PUT - Update capacity (upsert)
     if (req.method === 'PUT') {
-      const { zoneId, yearMonth, capacity, occupiedSeats } = req.body;
+      const { zoneId, yearMonth, capacity } = req.body;
 
       if (!zoneId || !yearMonth) {
         return res.status(400).json({ success: false, error: 'zoneId and yearMonth required' });
       }
 
-      // Check if record exists
-      const existing = await prisma.monthlyCapacity.findUnique({
+      const zoneCapacity = await prisma.zoneCapacity.upsert({
         where: {
           zoneId_yearMonth: { zoneId, yearMonth },
         },
+        update: { capacity },
+        create: {
+          zoneId,
+          yearMonth,
+          capacity: capacity ?? 0,
+        },
       });
 
-      const [year, month] = yearMonth.split('-').map(Number);
-
-      if (existing) {
-        // Update existing
-        const updated = await prisma.monthlyCapacity.update({
-          where: { id: existing.id },
-          data: {
-            capacity: capacity ?? existing.capacity,
-            occupiedSeats: occupiedSeats ?? existing.occupiedSeats,
-            unallocated: (capacity ?? existing.capacity) - (occupiedSeats ?? existing.occupiedSeats),
-          },
-        });
-        return res.status(200).json({ success: true, data: updated });
-      } else {
-        // Create new
-        const created = await prisma.monthlyCapacity.create({
-          data: {
-            zoneId,
-            year,
-            month,
-            yearMonth,
-            capacity: capacity ?? 0,
-            occupiedSeats: occupiedSeats ?? 0,
-            unallocated: (capacity ?? 0) - (occupiedSeats ?? 0),
-          },
-        });
-        return res.status(201).json({ success: true, data: created });
-      }
+      return res.status(200).json({ success: true, data: zoneCapacity });
     }
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });
