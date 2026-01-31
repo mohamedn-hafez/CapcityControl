@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './db';
+import { getDb } from './db.js';
 
 function getRiskStatus(utilization: number, isClosed: boolean = false): string {
   if (isClosed) return 'CLOSED';
