@@ -7,30 +7,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // GET - List all closure plans
     if (req.method === 'GET') {
+      // Closures are now at floor level
       const closures = await prisma.closurePlan.findMany({
         include: {
-          zone: {
+          floor: {
             include: {
-              floor: {
-                include: {
-                  site: {
-                    include: {
-                      region: true,
-                    },
-                  },
-                },
-              },
+              site: { include: { region: true } },
+              zones: true,
             },
           },
           allocations: {
             include: {
               targetZone: {
                 include: {
-                  floor: {
-                    include: {
-                      site: true,
-                    },
-                  },
+                  floor: { include: { site: true } },
                 },
               },
             },
@@ -39,17 +29,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         orderBy: { closureDate: 'asc' },
       });
 
-      const formattedClosures = closures.map((cp) => ({
+      const formatted = closures.map((cp) => ({
         id: cp.id,
-        zoneId: cp.zoneId,
-        siteId: cp.zone.floor.site.id,
-        siteName: cp.zone.floor.site.name,
-        siteCode: cp.zone.floor.site.code,
-        floorId: cp.zone.floor.id,
-        floorName: cp.zone.floor.name,
-        zoneName: cp.zone.name,
-        siteFloorZoneCode: cp.zone.siteFloorZoneCode,
-        regionCode: cp.zone.floor.site.region.code,
+        floorId: cp.floorId,
+        siteId: cp.floor.site.id,
+        siteName: cp.floor.site.name,
+        siteCode: cp.floor.site.code,
+        floorName: cp.floor.name,
+        zoneNames: cp.floor.zones.map(z => z.name).join(', '),
+        zoneCount: cp.floor.zones.length,
+        regionCode: cp.floor.site.region.code,
+        regionName: cp.floor.site.region.name,
         closureDate: cp.closureDate.toISOString().split('T')[0],
         yearMonth: cp.yearMonth,
         seatsAffected: cp.seatsAffected,
@@ -66,72 +56,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         unseatedStaff: cp.seatsAffected - cp.allocations.reduce((sum, a) => sum + a.allocatedSeats, 0),
       }));
 
-      return res.status(200).json({ success: true, data: formattedClosures });
+      return res.status(200).json({ success: true, data: formatted });
     }
 
-    // POST - Create new closure plan
+    // POST - Create new closure plan (floor level)
     if (req.method === 'POST') {
-      const { zoneId, closureDate, seatsAffected } = req.body;
+      const { floorId, closureDate, seatsAffected } = req.body;
 
-      if (!zoneId || !closureDate) {
-        return res.status(400).json({ success: false, error: 'zoneId and closureDate are required' });
+      if (!floorId || !closureDate) {
+        return res.status(400).json({ success: false, error: 'floorId and closureDate required' });
       }
 
-      // Get zone details to calculate affected seats if not provided
-      const zone = await prisma.zone.findUnique({
-        where: { id: zoneId },
+      // Get floor with zones to calculate seats affected if not provided
+      const floor = await prisma.floor.findUnique({
+        where: { id: floorId },
         include: {
-          monthlyCapacities: {
-            orderBy: { yearMonth: 'desc' },
-            take: 1,
-          },
-        },
-      });
-
-      if (!zone) {
-        return res.status(404).json({ success: false, error: 'Zone not found' });
-      }
-
-      const affectedSeats = seatsAffected ?? zone.monthlyCapacities[0]?.occupiedSeats ?? 0;
-      const dateObj = new Date(closureDate);
-      const yearMonth = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
-
-      const closurePlan = await prisma.closurePlan.create({
-        data: {
-          zoneId,
-          closureDate: dateObj,
-          yearMonth,
-          seatsAffected: affectedSeats,
-          status: 'PLANNED',
-        },
-        include: {
-          zone: {
+          site: true,
+          zones: {
             include: {
-              floor: {
-                include: {
-                  site: true,
-                },
+              projectAssignments: {
+                orderBy: { yearMonth: 'desc' },
               },
             },
           },
         },
       });
 
-      return res.status(201).json({ success: true, data: closurePlan });
+      if (!floor) {
+        return res.status(404).json({ success: false, error: 'Floor not found' });
+      }
+
+      // Calculate yearMonth from closureDate
+      const date = new Date(closureDate);
+      const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      // Calculate seats affected from all zones in the floor
+      let calculatedSeats = 0;
+      for (const zone of floor.zones) {
+        const latestAssignments = zone.projectAssignments.filter(pa => pa.yearMonth === yearMonth);
+        calculatedSeats += latestAssignments.reduce((sum, pa) => sum + pa.seats, 0);
+      }
+
+      const seats = seatsAffected || calculatedSeats;
+
+      const closure = await prisma.closurePlan.create({
+        data: {
+          id: `cp_${floor.site.code}${floor.code}`,
+          floorId,
+          closureDate: date,
+          yearMonth,
+          seatsAffected: seats,
+          status: 'PLANNED',
+        },
+      });
+
+      return res.status(201).json({ success: true, data: closure });
     }
 
     // DELETE - Remove closure plan
     if (req.method === 'DELETE') {
-      const { id } = req.query;
-
-      if (!id || typeof id !== 'string') {
-        return res.status(400).json({ success: false, error: 'Closure plan ID required' });
+      const id = req.query.id as string;
+      if (!id) {
+        return res.status(400).json({ success: false, error: 'id required' });
       }
 
-      await prisma.closurePlan.delete({
-        where: { id },
-      });
-
+      await prisma.closurePlan.delete({ where: { id } });
       return res.status(200).json({ success: true });
     }
 

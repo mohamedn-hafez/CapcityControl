@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ success: false, error: 'yearMonth parameter required' });
       }
 
-      // Get all sites with their regions
+      // Get all sites with floors, zones, and capacities
       const sites = await prisma.site.findMany({
         include: {
           region: true,
@@ -20,37 +20,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             include: {
               zones: {
                 include: {
-                  monthlyCapacities: {
-                    where: { yearMonth },
-                  },
-                  closurePlans: {
-                    where: { status: 'PLANNED' },
-                  },
+                  zoneCapacities: { where: { yearMonth } },
+                  projectAssignments: { where: { yearMonth } },
                 },
               },
+              closurePlans: { where: { status: 'PLANNED' } },
             },
           },
         },
         orderBy: { name: 'asc' },
       });
 
-      // Get closures for this month
+      // Get closures this month (floor level)
       const closuresThisMonth = await prisma.closurePlan.findMany({
         where: { yearMonth },
         include: {
-          zone: {
+          floor: {
             include: {
-              floor: {
-                include: {
-                  site: true,
-                },
-              },
+              site: true,
+              zones: true,
             },
           },
         },
       });
 
-      // Transform data into dashboard format
+      // Transform to dashboard format
       const dashboardSites = sites.map((site) => {
         let siteTotalCapacity = 0;
         let siteTotalOccupied = 0;
@@ -59,19 +53,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           let floorTotalCapacity = 0;
           let floorTotalOccupied = 0;
 
-          const zones = floor.zones.map((zone) => {
-            const capacity = zone.monthlyCapacities[0];
-            const closurePlan = zone.closurePlans.find(
-              (cp) => cp.yearMonth <= yearMonth
-            );
-            const isClosed = !!closurePlan && closurePlan.yearMonth <= yearMonth;
+          // Check if this floor is closed
+          const floorClosurePlan = floor.closurePlans.find((cp) => cp.yearMonth <= yearMonth);
+          const isFloorClosed = !!floorClosurePlan;
 
-            const zoneCapacity = capacity?.capacity || 0;
-            const zoneOccupied = isClosed ? 0 : (capacity?.occupiedSeats || 0);
-            const zoneAvailable = isClosed ? 0 : (zoneCapacity - zoneOccupied);
+          const zones = floor.zones.map((zone) => {
+            const capacityRecord = zone.zoneCapacities[0];
+            const zoneCapacity = capacityRecord?.capacity || 0;
+
+            // Calculate occupied from ProjectAssignment
+            const zoneOccupied = isFloorClosed ? 0 : zone.projectAssignments.reduce((sum, pa) => sum + pa.seats, 0);
+            const zoneAvailable = isFloorClosed ? 0 : Math.max(0, zoneCapacity - zoneOccupied);
             const utilization = zoneCapacity > 0 ? (zoneOccupied / zoneCapacity) * 100 : 0;
 
-            floorTotalCapacity += isClosed ? 0 : zoneCapacity;
+            floorTotalCapacity += isFloorClosed ? 0 : zoneCapacity;
             floorTotalOccupied += zoneOccupied;
 
             return {
@@ -83,18 +78,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               occupied: zoneOccupied,
               available: zoneAvailable,
               utilizationPercent: Math.round(utilization * 10) / 10,
-              riskStatus: getRiskStatus(utilization, isClosed),
-              isClosing: !!closurePlan,
-              closureDate: closurePlan?.closureDate?.toISOString().split('T')[0],
+              riskStatus: getRiskStatus(utilization, isFloorClosed),
+              isClosing: isFloorClosed,
+              closureDate: floorClosurePlan?.closureDate?.toISOString().split('T')[0],
             };
           });
 
           siteTotalCapacity += floorTotalCapacity;
           siteTotalOccupied += floorTotalOccupied;
 
-          const floorUtilization = floorTotalCapacity > 0
-            ? (floorTotalOccupied / floorTotalCapacity) * 100
-            : 0;
+          const floorUtilization = floorTotalCapacity > 0 ? (floorTotalOccupied / floorTotalCapacity) * 100 : 0;
 
           return {
             floorId: floor.id,
@@ -104,14 +97,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             totalOccupied: floorTotalOccupied,
             totalAvailable: floorTotalCapacity - floorTotalOccupied,
             utilizationPercent: Math.round(floorUtilization * 10) / 10,
-            riskStatus: getRiskStatus(floorUtilization),
+            riskStatus: getRiskStatus(floorUtilization, isFloorClosed),
+            isClosing: isFloorClosed,
             zones,
           };
         });
 
-        const siteUtilization = siteTotalCapacity > 0
-          ? (siteTotalOccupied / siteTotalCapacity) * 100
-          : 0;
+        const siteUtilization = siteTotalCapacity > 0 ? (siteTotalOccupied / siteTotalCapacity) * 100 : 0;
 
         return {
           siteId: site.id,
@@ -129,36 +121,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
       });
 
-      // Calculate totals
       const totalCapacity = dashboardSites.reduce((sum, s) => sum + s.totalCapacity, 0);
       const totalOccupied = dashboardSites.reduce((sum, s) => sum + s.totalOccupied, 0);
 
       const [year, month] = yearMonth.split('-').map(Number);
       const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-      const dashboardData = {
-        yearMonth,
-        year,
-        month,
-        monthName: monthNames[month - 1],
-        sites: dashboardSites,
-        totalCapacity,
-        totalOccupied,
-        totalAvailable: totalCapacity - totalOccupied,
-        closuresThisMonth: closuresThisMonth.map((cp) => ({
-          id: cp.id,
-          zoneId: cp.zoneId,
-          siteName: cp.zone.floor.site.name,
-          floorName: cp.zone.floor.name,
-          zoneName: cp.zone.name,
-          closureDate: cp.closureDate.toISOString().split('T')[0],
-          yearMonth: cp.yearMonth,
-          seatsAffected: cp.seatsAffected,
-          status: cp.status,
-        })),
-      };
-
-      return res.status(200).json({ success: true, data: dashboardData });
+      return res.status(200).json({
+        success: true,
+        data: {
+          yearMonth,
+          year,
+          month,
+          monthName: monthNames[month - 1],
+          sites: dashboardSites,
+          totalCapacity,
+          totalOccupied,
+          totalAvailable: totalCapacity - totalOccupied,
+          closuresThisMonth: closuresThisMonth.map((cp) => ({
+            id: cp.id,
+            floorId: cp.floorId,
+            siteName: cp.floor.site.name,
+            floorName: cp.floor.name,
+            zoneName: cp.floor.zones.map(z => z.name).join(', '),
+            closureDate: cp.closureDate.toISOString().split('T')[0],
+            yearMonth: cp.yearMonth,
+            seatsAffected: cp.seatsAffected,
+            status: cp.status,
+          })),
+        },
+      });
     }
 
     return res.status(405).json({ success: false, error: 'Method not allowed' });

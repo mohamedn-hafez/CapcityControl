@@ -1,0 +1,49 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getDb } from '../db';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const prisma = getDb();
+
+  try {
+    if (req.method === 'GET') {
+      const projects = await prisma.project.findMany({
+        include: { client: true },
+        orderBy: { code: 'asc' },
+      });
+      return res.status(200).json({ success: true, data: projects });
+    }
+
+    if (req.method === 'POST') {
+      const { code, name, clientId } = req.body;
+      const project = await prisma.project.create({
+        data: {
+          id: `proj_${code}`,
+          code,
+          name: name || null,
+          clientId,
+        },
+      });
+      return res.status(201).json({ success: true, data: project });
+    }
+
+    if (req.method === 'PUT') {
+      const { id, code, name, clientId } = req.body;
+      const project = await prisma.project.update({
+        where: { id },
+        data: { code, name, clientId },
+      });
+      return res.status(200).json({ success: true, data: project });
+    }
+
+    if (req.method === 'DELETE') {
+      const id = req.query.id as string;
+      await prisma.project.delete({ where: { id } });
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  } catch (error: any) {
+    console.error('API Error:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
