@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { prisma } from '../lib/prisma';
+import { prisma } from './_prisma';
 
 function getRiskStatus(utilization: number, isClosed: boolean = false): string {
   if (isClosed) return 'CLOSED';
