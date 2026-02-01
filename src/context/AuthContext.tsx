@@ -16,8 +16,8 @@ interface AuthState {
 }
 
 interface AuthContextType extends AuthState {
-  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; pendingApproval?: boolean; pendingVerification?: boolean }>;
-  register: (email: string, username: string, password: string, name?: string) => Promise<{ success: boolean; error?: string; pendingApproval?: boolean; pendingVerification?: boolean }>;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, username: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 }
 
@@ -80,14 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(userData);
         return { success: true };
       } else {
-        // Check if pending verification
-        if (data.pendingVerification) {
-          return { success: false, error: data.error, pendingVerification: true };
-        }
-        // Check if pending approval
-        if (data.pendingApproval) {
-          return { success: false, error: data.error, pendingApproval: true };
-        }
         return { success: false, error: data.error || 'Login failed' };
       }
     } catch (error: any) {
@@ -105,15 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (data.success && data.data) {
-        // Check if pending verification (email confirmation required)
-        if (data.data.pendingVerification) {
-          return { success: true, pendingVerification: true, pendingApproval: data.data.pendingApproval };
-        }
-        // Check if pending approval only (no token returned)
-        if (data.data.pendingApproval) {
-          return { success: true, pendingApproval: true };
-        }
-        // Normal registration with immediate access
         const { token: newToken, user: userData } = data.data;
         localStorage.setItem(TOKEN_KEY, newToken);
         setToken(newToken);

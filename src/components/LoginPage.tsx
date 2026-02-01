@@ -1,26 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, UserPlus, Mail, User, Lock, AlertCircle, Clock, CheckCircle, MailCheck, MailX } from 'lucide-react';
+import { LogIn, UserPlus, Mail, User, Lock, AlertCircle } from 'lucide-react';
 
 export function LoginPage() {
   const { login, register } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingApproval, setPendingApproval] = useState(false);
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [verificationStatus, setVerificationStatus] = useState<'success' | 'invalid' | 'expired' | null>(null);
-
-  // Check URL for verification status on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const verified = params.get('verified');
-    if (verified === 'success' || verified === 'invalid' || verified === 'expired') {
-      setVerificationStatus(verified as 'success' | 'invalid' | 'expired');
-      // Clear the URL params
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, []);
 
   // Form fields
   const [identifier, setIdentifier] = useState(''); // email or username for login
@@ -32,9 +18,6 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setPendingApproval(false);
-    setPendingVerification(false);
-    setVerificationStatus(null);
     setIsLoading(true);
 
     try {
@@ -45,15 +28,7 @@ export function LoginPage() {
         result = await login(identifier, password);
       }
 
-      if (result.pendingVerification) {
-        setPendingVerification(true);
-        setPendingApproval(!!result.pendingApproval);
-      } else if (result.pendingApproval) {
-        setPendingApproval(true);
-        if (!result.success) {
-          setError(result.error || null);
-        }
-      } else if (!result.success) {
+      if (!result.success) {
         setError(result.error || 'An error occurred');
       }
     } catch (err: any) {
@@ -66,9 +41,6 @@ export function LoginPage() {
   const toggleMode = () => {
     setIsRegister(!isRegister);
     setError(null);
-    setPendingApproval(false);
-    setPendingVerification(false);
-    setVerificationStatus(null);
     // Clear form
     setIdentifier('');
     setEmail('');
@@ -91,89 +63,8 @@ export function LoginPage() {
           </p>
         </div>
 
-        {/* Email Verification Success */}
-        {verificationStatus === 'success' && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
-            <MailCheck className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-green-800 font-medium">Email Verified!</p>
-              <p className="text-green-700 text-sm mt-1">
-                Your email has been verified. An administrator will now review your account. You can sign in once approved.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Email Verification Failed */}
-        {verificationStatus === 'invalid' && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-            <MailX className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-red-800 font-medium">Invalid Verification Link</p>
-              <p className="text-red-700 text-sm mt-1">
-                The verification link is invalid or has already been used. Please try registering again.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Email Verification Expired */}
-        {verificationStatus === 'expired' && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-            <MailX className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-amber-800 font-medium">Verification Link Expired</p>
-              <p className="text-amber-700 text-sm mt-1">
-                The verification link has expired. Please register again to receive a new verification email.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Pending Email Verification - After Registration */}
-        {pendingVerification && isRegister && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
-            <MailCheck className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-blue-800 font-medium">Check Your Email!</p>
-              <p className="text-blue-700 text-sm mt-1">
-                We've sent a verification link to your email address. Please check your inbox and click the link to verify your account.
-              </p>
-              <p className="text-blue-600 text-xs mt-2">
-                After verifying, an administrator will review your account.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Pending Email Verification on Login */}
-        {pendingVerification && !isRegister && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-            <MailX className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-amber-800 font-medium">Email Not Verified</p>
-              <p className="text-amber-700 text-sm mt-1">
-                Please verify your email address before signing in. Check your inbox for the verification link.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Pending Approval on Login */}
-        {pendingApproval && !isRegister && !pendingVerification && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
-            <Clock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-amber-800 font-medium">Account Pending Approval</p>
-              <p className="text-amber-700 text-sm mt-1">
-                Your account is awaiting admin approval. Please check back later or contact an administrator.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Error Message */}
-        {error && !pendingApproval && !pendingVerification && (
+        {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <span className="text-red-700 text-sm">{error}</span>
