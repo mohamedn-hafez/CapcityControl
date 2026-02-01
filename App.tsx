@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { Header } from './src/components/Header';
 import { MonthSelector } from './src/components/MonthSelector';
 import { CapacityGrid } from './src/components/CapacityGrid';
 import { ClosurePanel } from './src/components/ClosurePanel';
 import { AllocationPanel } from './src/components/AllocationPanel';
 import { AdminPanel } from './src/components/AdminPanel';
+import { LoginPage } from './src/components/LoginPage';
 
 type PageView = 'dashboard' | 'admin';
 
@@ -52,6 +54,21 @@ function Dashboard({ onNavigate }: { onNavigate: (page: PageView) => void }) {
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageView>('dashboard');
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   if (currentPage === 'admin') {
     return <AdminPanel onBack={() => setCurrentPage('dashboard')} />;
@@ -62,8 +79,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </AuthProvider>
   );
 }
