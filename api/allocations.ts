@@ -1,13 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { PrismaClient } from '@prisma/client';
-import { neonConfig, Pool } from '@neondatabase/serverless';
-import { PrismaNeon } from '@prisma/adapter-neon';
 
-neonConfig.fetchConnectionCache = true;
-
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaNeon(pool);
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL,
+});
 
 function getRiskStatus(utilization: number, isClosed: boolean = false): string {
   if (isClosed) return 'CLOSED';
